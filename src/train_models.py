@@ -172,6 +172,74 @@ bundle = {
 }
 joblib.dump(bundle, MODELS / "smartq_wait_time_model.joblib", compress=3)
 
+# Save selected-model predictions and additional evaluation breakdowns.
+if selected == "XGBoost":
+    selected_test_pred = np.clip(best_xgb.predict(Xt), 0, None)
+elif selected == "Random Forest":
+    selected_test_pred = np.clip(best_rf.predict(Xt), 0, None)
+else:
+    selected_test_pred = np.clip(linear.predict(Xt), 0, None)
+
+prediction_columns = [
+    "record_id", "scenario_date", "branch_code", "service_code",
+    "booking_source", "queue_type", "actual_wait_minutes",
+]
+predictions = test[prediction_columns].copy()
+predictions["predicted_wait_minutes"] = selected_test_pred
+predictions["absolute_error_minutes"] = (
+    predictions["actual_wait_minutes"] - predictions["predicted_wait_minutes"]
+).abs()
+predictions.to_csv(RESULTS / "test_predictions.csv", index=False)
+
+feature_names = preprocessor.get_feature_names_out()
+if selected == "XGBoost":
+    importance = best_xgb.feature_importances_
+elif selected == "Random Forest":
+    importance = best_rf.feature_importances_
+else:
+    importance = np.abs(linear.coef_)
+
+pd.DataFrame({
+    "feature": feature_names,
+    "importance": importance,
+}).sort_values("importance", ascending=False).to_csv(
+    RESULTS / "feature_importance.csv", index=False
+)
+
+analysis = predictions.merge(
+    test[[
+        "record_id", "queue_pressure_index", "branch_name",
+        "service_name", "is_peak_period",
+    ]],
+    on="record_id",
+    how="left",
+)
+analysis["traffic_scenario"] = pd.cut(
+    analysis["queue_pressure_index"],
+    bins=[-np.inf, 1.0, 2.5, np.inf],
+    labels=["Low", "Moderate", "Busy"],
+    right=False,
+)
+
+def performance_table(frame, group_column):
+    records = []
+    for key, group in frame.groupby(group_column, observed=False):
+        error = group["actual_wait_minutes"] - group["predicted_wait_minutes"]
+        records.append({
+            group_column: key,
+            "rows": len(group),
+            "mae": error.abs().mean(),
+            "rmse": np.sqrt((error ** 2).mean()),
+            "mean_actual_wait": group["actual_wait_minutes"].mean(),
+            "mean_predicted_wait": group["predicted_wait_minutes"].mean(),
+        })
+    return pd.DataFrame(records)
+
+performance_table(analysis, "traffic_scenario").to_csv(RESULTS / "scenario_performance.csv", index=False)
+performance_table(analysis, "service_name").to_csv(RESULTS / "service_performance.csv", index=False)
+performance_table(analysis, "branch_name").to_csv(RESULTS / "branch_performance.csv", index=False)
+performance_table(analysis, "is_peak_period").to_csv(RESULTS / "peak_performance.csv", index=False)
+
 summary = {
     "total_completed_rows": len(completed),
     "train_rows": len(train),
