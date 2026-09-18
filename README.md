@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# SmartQ-Machine-Learning
-=======
 # SmartQ Machine Learning
 
 Machine-learning workspace for **SmartQ: A Machine-Learning-Assisted Queue Management System for Waiting-Time Prediction**.
@@ -64,7 +61,3 @@ Post-outcome fields such as `call_time`, `actual_wait_minutes`, `actual_service_
 10. Model export
 11. SmartQ API integration
 
-## Status
-
-Dataset and initial notebook prepared. Model development follows next.
->>>>>>> 25df0ba (Initialize SmartQ machine learning project with 100k dataset)
