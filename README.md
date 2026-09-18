@@ -64,7 +64,14 @@ Post-outcome fields such as `call_time`, `actual_wait_minutes`, `actual_service_
 
 ## Current status
 
-- 100,000-row synthetic SmartQ dataset committed and validated.
-- Data Understanding / EDA completed and documented.
-- Data-quality checks passed with zero structural queue/timestamp violations.
-- Next stage: Data Preparation and chronological train/validation/test splitting.
+- 100,000-row synthetic SmartQ operational dataset committed and validated.
+- Data Understanding / EDA completed.
+- Data Preparation completed with a chronological whole-day split.
+- Linear Regression, Random Forest and XGBoost trained and compared using MAE/RMSE.
+- **XGBoost selected by lowest validation MAE: 2.6302 minutes.**
+- Selected XGBoost final test MAE: **2.5824 minutes**; test RMSE: **4.9561 minutes**.
+- Mean-wait baseline test MAE: **14.9850 minutes**.
+- Existing deterministic SmartQ ETA test MAE: **4.6386 minutes**.
+- Busy-traffic performance is weaker and is documented as a project limitation.
+- Reproducible training pipeline is available in `src/train_models.py`.
+- Next stage: package the trained model for SmartQ API integration and verify prediction response time.
