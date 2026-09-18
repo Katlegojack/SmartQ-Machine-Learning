@@ -61,3 +61,10 @@ Post-outcome fields such as `call_time`, `actual_wait_minutes`, `actual_service_
 10. Model export
 11. SmartQ API integration
 
+
+## Current status
+
+- 100,000-row synthetic SmartQ dataset committed and validated.
+- Data Understanding / EDA completed and documented.
+- Data-quality checks passed with zero structural queue/timestamp violations.
+- Next stage: Data Preparation and chronological train/validation/test splitting.
