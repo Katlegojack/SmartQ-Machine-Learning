@@ -20,15 +20,32 @@ Models will be compared using **MAE (Mean Absolute Error)** and **RMSE (Root Mea
 
 ```text
 SmartQ-Machine-Learning/
+├── .github/workflows/
+│   └── ml-quality.yml
+├── .project-notes/
+│   └── README.md
 ├── data/
 │   └── SmartQ_Synthetic_Operational_Dataset_100k.csv
 ├── notebooks/
+│   ├── 01_Data_Understanding_EDA.ipynb
+│   ├── 02_Data_Preparation.ipynb
+│   ├── 03_Model_Training_Evaluation.ipynb
 │   └── SmartQ_ML_100k_Embedded_Dataset.ipynb
 ├── docs/
+│   ├── EDA_Findings.md
+│   ├── Model_Card.md
+│   ├── Model_Evaluation.md
+│   ├── Report_ML_Methodology.md
+│   ├── SmartQ_Integration_Guide.md
 │   └── SmartQ_100k_Synthetic_Dataset_Documentation.docx
 ├── models/
 ├── results/
+│   ├── eda/
+│   └── modeling/
 ├── src/
+│   ├── predict.py
+│   ├── train_models.py
+│   └── validate_dataset.py
 ├── requirements.txt
 └── README.md
 ```
@@ -75,3 +92,7 @@ Post-outcome fields such as `call_time`, `actual_wait_minutes`, `actual_service_
 - Busy-traffic performance is weaker and is documented as a project limitation.
 - Reproducible training pipeline is available in `src/train_models.py`.
 - Next stage: package the trained model for SmartQ API integration and verify prediction response time.
+
+## Detailed engineering notes
+
+For the full plain-English engineering rationale, alternatives, trade-offs and decision history, read `.project-notes/README.md`.
