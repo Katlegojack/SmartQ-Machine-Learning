@@ -12,9 +12,7 @@ models/*.joblib
 models/*.pkl
 models/*.json
 
-# Generated results
-results/*.png
-results/*.csv
+# Capstone result files are intentionally tracked for reproducibility.
 
 # OS/editor
 .DS_Store
