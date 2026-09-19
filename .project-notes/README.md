@@ -1259,3 +1259,140 @@ A separate plain-English learning reference now lives at:
 It explains the ML terminology, Linear Regression, Random Forest, XGBoost, preprocessing, metrics, model quality, feature quality, overfitting, generalisation, p-values, R², VIF, feature importance, permutation importance and SHAP in simple English.
 
 From this point onward, new ML terms should be defined in simple English before being used in project decisions.
+
+
+---
+
+## 42. Model diagnostics and statistical understanding
+
+The project now includes a dedicated diagnostics stage rather than stopping at MAE/RMSE.
+
+Added:
+
+- `notebooks/04_Model_Diagnostics_Statistical_Analysis.ipynb`
+- `src/model_diagnostics.py`
+- `docs/Model_Diagnostics_Statistical_Analysis.md`
+- `results/diagnostics/`
+
+The diagnostics answer whether the models generalise, whether Random Forest/XGBoost overfit, how much variation they explain, whether Linear Regression terms are statistically significant, whether numeric predictors overlap, and which variables actually matter to XGBoost.
+
+### Fit results
+
+Test R²:
+
+- Linear Regression: 0.9313
+- Random Forest: 0.9645
+- XGBoost: 0.9596
+
+Random Forest has the strongest training fit but a larger train-to-validation gap.
+
+XGBoost has a smaller train-to-validation gap and remains the selected model because the official selection rule is lowest validation MAE.
+
+### Linear Regression statistical findings
+
+A companion OLS model was fitted using HC3 robust standard errors.
+
+Training:
+
+- R²: 0.94855
+- Adjusted R²: 0.94853
+
+26 of 30 estimated terms have p < 0.05.
+
+Not significant at the 5% level after controlling for the other model variables:
+
+- Monday
+- Tuesday
+- Wednesday
+- peak-period indicator
+
+This does not mean peak periods have no raw difference. Raw EDA shows higher peak waits. It means that once direct queue-state variables such as workload, counters and people ahead are controlled for, the simple peak flag adds little independent linear information.
+
+### Multicollinearity
+
+VIF revealed strong overlap among engineered queue-state variables.
+
+Examples:
+
+- queue_pressure_index: VIF ≈ 44
+- people_ahead: ≈ 39
+- serving_count: ≈ 39
+- counter_utilisation: ≈ 39
+- general_waiting: ≈ 35
+- workload_minutes_ahead: ≈ 33
+
+Decision:
+
+Do not remove these variables from Random Forest/XGBoost solely because of VIF. VIF mainly warns us not to over-interpret individual Linear Regression coefficients as independent causal effects.
+
+### Linear Regression assumptions
+
+Breusch-Pagan strongly indicates heteroscedasticity.
+
+Jarque-Bera strongly rejects normal residuals and shows heavy tails.
+
+Durbin-Watson is about 1.91, which does not indicate obvious strong first-order residual autocorrelation in row order.
+
+Because heteroscedasticity is present, HC3 robust standard errors are used for coefficient inference.
+
+### Statistical significance vs practical importance
+
+Pairwise EDA tests demonstrate why p-values cannot be used alone:
+
+- General vs Priority: statistically very strong, Cohen's d ≈ 0.258
+- Appointment vs Walk-in: statistically very strong, d ≈ 0.142
+- Peak vs Non-peak: statistically very strong, d ≈ 0.089
+
+The dataset is very large, so even small effects can produce tiny p-values.
+
+Service-type raw waiting means are extremely similar; one-way ANOVA p ≈ 0.650, eta-squared ≈ 0.000009.
+
+### Permutation importance
+
+For XGBoost, shuffling these variables hurts test MAE most:
+
+1. workload_minutes_ahead: +7.54 min
+2. people_ahead: +4.15 min
+3. arrival_offset_minutes: +3.30 min
+4. effective_open_counters: +2.70 min
+5. queue_pressure_index: +0.54 min
+
+This is stronger evidence of predictive usefulness than p-values alone.
+
+### SHAP
+
+TreeSHAP was added as an explainability diagnostic.
+
+Largest average absolute SHAP contributions on a fixed 5,000-row test sample:
+
+- workload_minutes_ahead: 7.10
+- people_ahead: 5.74
+- arrival_offset_minutes: 3.88
+- effective_open_counters: 2.59
+- queue_pressure_index: 1.47
+
+Permutation importance and SHAP therefore tell a consistent operational story.
+
+### Negative predictions
+
+Raw XGBoost produces some small negative values.
+
+On the test set:
+
+- 962 raw negative predictions
+- minimum ≈ -1.04 min
+- median negative ≈ -0.10 min
+
+The prediction interface already clips customer-facing wait to zero.
+
+Random Forest produces no negative test predictions, while Linear Regression produces many more and can become substantially negative.
+
+### Decision after diagnostics
+
+The selected model does **not** change.
+
+The diagnostics improve our understanding, but do not provide a reason to violate the predefined validation-MAE selection rule.
+
+The important new conclusion is:
+
+> XGBoost is a strong predictive prototype on the synthetic dataset, but Linear Regression coefficient interpretation is complicated by multicollinearity and heteroscedasticity, and all real-world accuracy claims remain unproven until live representative data is collected.
