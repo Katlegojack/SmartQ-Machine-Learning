@@ -1,14 +1,18 @@
-# SmartQ ML Integration Guide
+# My SmartQ ML Integration Guide
 
-## Purpose
+## Why I wrote this guide
 
-This guide defines how the selected SmartQ XGBoost waiting-time model should be connected to the main Django/DRF SmartQ application.
+I separated the machine-learning repository from the main SmartQ Django application.
 
-The ML repository remains responsible for model training and evaluation. The main SmartQ application remains responsible for collecting live queue state and presenting predictions to users.
+I did that so I could train, evaluate and document the model independently without mixing experimental ML work into the main application code.
+
+The next step is to connect the selected model to SmartQ safely.
+
+This guide records how I plan to do that.
 
 ## Model artifact
 
-Run:
+I generate the trained model bundle by running:
 
 ```bash
 python src/train_models.py
@@ -20,13 +24,21 @@ This creates:
 models/smartq_wait_time_model.joblib
 ```
 
-The bundle contains both the fitted preprocessing transformer and the selected XGBoost model.
+The bundle contains:
 
-## Prediction contract
+- the fitted preprocessing transformer;
+- the selected XGBoost model;
+- the feature list;
+- the target name;
+- model metadata.
 
-The integration layer must build one observation using information known at prediction time.
+I package preprocessing and the model together because prediction must use exactly the same transformations that were used during training.
 
-Required inputs:
+## Inputs I require at prediction time
+
+My integration layer must build one observation using information that is already known when the customer needs the estimate.
+
+The required fields are:
 
 ```text
 arrival_offset_minutes
@@ -53,11 +65,31 @@ day_of_week
 is_peak_period
 ```
 
-The helper in `src/predict.py` validates this contract and always returns a non-negative waiting-time estimate.
+I deliberately do not allow future/outcome fields.
 
-## Django integration shape
+## Prediction helper
 
-The SmartQ backend should calculate the current queue-state features from its own database and queue services, pass them to the predictor, and return the prediction through the existing API layer.
+I created:
+
+`src/predict.py`
+
+My helper:
+
+1. checks that all required inputs are present;
+2. loads the trained model bundle;
+3. applies the saved preprocessing;
+4. makes the prediction;
+5. prevents negative customer-facing waits.
+
+The customer-facing result is:
+
+`max(0, prediction)`
+
+I do this because waiting time cannot be negative.
+
+## How I want to connect it to Django
+
+The main SmartQ backend should calculate the live queue features from its own database and queue services.
 
 Conceptually:
 
@@ -66,7 +98,7 @@ observation = build_live_queue_features(ticket)
 predicted_minutes = predict_wait_minutes(observation)
 ```
 
-The API response can expose a field such as:
+Then the existing API can return something like:
 
 ```json
 {
@@ -76,17 +108,51 @@ The API response can expose a field such as:
 }
 ```
 
-The exact response shape should be adapted to the existing SmartQ API rather than creating a second unrelated API.
+I do not want to create a second unrelated API if the current SmartQ API can carry the prediction cleanly.
 
-## Important engineering rules
+## My engineering rules for integration
 
-1. The model must never receive post-outcome fields such as actual wait or service completion time.
-2. The model should be loaded once per application process where possible rather than reloaded from disk for every HTTP request.
-3. If prediction fails, SmartQ should fall back safely to the existing deterministic ETA instead of breaking the customer queue experience.
-4. The prediction should be rounded for customer display while retaining the raw numeric value for evaluation/logging.
-5. Prediction latency should be measured against the proposal's two-second requirement.
-6. Prediction observations and later actual waits should be logged so real operational data can eventually replace synthetic-only training.
+### 1. I will not send future information to the model
+
+I must never use actual wait, completion time or any other outcome field when making the live prediction.
+
+### 2. I should load the model once per application process
+
+I do not want to read the model from disk for every HTTP request.
+
+That would waste time and make prediction slower.
+
+### 3. I want a fallback
+
+If ML prediction fails, I want SmartQ to fall back to the existing deterministic ETA.
+
+I do this because ML should improve the application, not become a single point of failure.
+
+### 4. I will separate display value from stored raw value
+
+I can round the waiting time for customer display, but I still want the raw numeric prediction available for logging and later evaluation.
+
+### 5. I must measure latency
+
+My proposal requires the prediction response to stay under two seconds.
+
+I therefore need an actual timing test after Django integration.
+
+### 6. I want to log predictions and later outcomes
+
+Once SmartQ is running, I want to record:
+
+- what the model predicted;
+- what the actual waiting time became.
+
+That future data is how I can eventually move away from synthetic-only training.
 
 ## Current limitation
 
-The selected model was trained on synthetic SmartQ data. Integration proves the end-to-end ML workflow, but a real deployment would require validation and retraining using representative live operational data.
+My selected model was trained entirely on synthetic SmartQ data.
+
+Connecting it to Django will prove that the end-to-end ML workflow works.
+
+It will **not** prove that the model is production-ready for a real organisation.
+
+I will need representative live data before I make real-world accuracy claims.
