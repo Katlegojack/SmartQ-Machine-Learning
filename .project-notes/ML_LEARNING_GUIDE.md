@@ -966,3 +966,97 @@ From this point onward, whenever a new ML term is introduced, documentation shou
 The goal is not only to finish SmartQ.
 
 The goal is for the developer to understand why the system was built this way.
+
+
+---
+
+# MODEL DIAGNOSTICS — WHAT WE LEARNED FROM SMARTQ
+
+## 44. R² in our actual models
+
+R² means: how much of the variation in waiting time does the model explain?
+
+Test R²:
+
+- Linear Regression: 0.931
+- Random Forest: 0.965
+- XGBoost: 0.960
+
+This is strong fit on the synthetic test period, but R² does not tell us the average error in minutes. That is why MAE and RMSE remain necessary.
+
+## 45. Statistical significance is not the same as usefulness
+
+With tens of thousands of records, tiny effects can receive tiny p-values.
+
+Example:
+
+Peak vs non-peak waiting time is statistically different, but Cohen's d is only about 0.089, which is a very small standardised effect.
+
+So always ask:
+
+1. Is it statistically detectable?
+2. Is the effect actually large?
+3. Does the variable improve prediction?
+
+## 46. Heteroscedasticity
+
+Heteroscedasticity means the error spread is not constant.
+
+In SmartQ, quiet queues can be easier to predict than severe congestion.
+
+The Breusch-Pagan test strongly detects this.
+
+That is why the statistical Linear Regression uses **HC3 robust standard errors**.
+
+## 47. Robust standard error
+
+A robust standard error is a safer estimate of coefficient uncertainty when the normal constant-variance assumptions are not perfect.
+
+It does not change the fitted coefficient itself.
+
+It changes how cautiously we judge its uncertainty and p-value.
+
+## 48. Multicollinearity and VIF in our data
+
+Several SmartQ queue variables overlap strongly because they describe related operational conditions.
+
+High VIF does not mean the data is "bad."
+
+It means:
+
+> Be careful saying one Linear Regression coefficient represents a clean independent effect.
+
+Tree models can still use correlated features for prediction.
+
+## 49. Permutation importance
+
+Permutation importance asks:
+
+> What happens if I destroy one feature's information by shuffling it?
+
+For XGBoost, shuffling workload ahead increases test MAE by about 7.54 minutes.
+
+That is a strong sign that workload ahead carries useful predictive information.
+
+## 50. SHAP
+
+SHAP asks:
+
+> How much did each feature push the model prediction up or down?
+
+SmartQ's strongest average SHAP signals are workload ahead, people ahead, arrival timing, effective counters and queue pressure.
+
+Unlike a p-value, SHAP is about model behaviour, not statistical hypothesis testing.
+
+## 51. Important lesson: different tools answer different questions
+
+- MAE: how many minutes wrong?
+- RMSE: are large errors a problem?
+- R²: how much target variation is explained?
+- p-value: is a coefficient statistically distinguishable from zero?
+- confidence interval: how uncertain is the coefficient estimate?
+- VIF: are predictors overlapping heavily?
+- residual plot: where and how does the model make errors?
+- permutation importance: does destroying a feature hurt prediction?
+- SHAP: how much does a feature influence model predictions?
+- validation/test comparison: does the model generalise?
