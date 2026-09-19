@@ -91,6 +91,7 @@ Post-outcome fields such as `call_time`, `actual_wait_minutes`, `actual_service_
 - Existing deterministic SmartQ ETA test MAE: **4.6386 minutes**.
 - Busy-traffic performance is weaker and is documented as a project limitation.
 - Reproducible training pipeline is available in `src/train_models.py`.
+- Model diagnostics and statistical analysis completed: R², robust OLS inference, p-values, confidence intervals, VIF, residual tests, permutation importance and TreeSHAP.
 - Next stage: package the trained model for SmartQ API integration and verify prediction response time.
 
 ## Detailed engineering notes
