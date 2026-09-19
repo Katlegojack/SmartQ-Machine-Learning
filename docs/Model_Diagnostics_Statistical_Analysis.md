@@ -1,25 +1,33 @@
-# SmartQ Model Diagnostics and Statistical Analysis
+# My SmartQ Model Diagnostics and Statistical Analysis
 
-## Why this stage exists
+## Why I added this stage
 
-MAE and RMSE tell us **how wrong a model is**, but they do not answer every question.
+I did not want to stop after getting a low MAE and RMSE.
 
-This diagnostics stage asks additional questions:
+Those metrics tell me how wrong a model is, but they do not fully explain whether the model is stable, whether it is overfitting, whether the variables make sense, or where the model still fails.
 
-- Does the model generalise to unseen dates?
-- Is it overfitting?
-- How much variation does it explain?
+So I added a separate diagnostics stage.
+
+The main questions I wanted to answer were:
+
+- Does each model still perform well on later unseen dates?
+- Is any model overfitting?
+- How much of the variation in waiting time does each model explain?
 - Which Linear Regression variables are statistically significant?
 - Are some variables repeating the same information?
-- Are the Linear Regression assumptions reasonable?
-- Which features actually matter for XGBoost predictions?
-- Where does the selected model still fail?
+- Are the main Linear Regression assumptions reasonable?
+- Which variables actually matter to XGBoost prediction?
+- Where does the selected model still struggle?
 
-The important lesson is that **statistical significance, model fit, feature usefulness and predictive accuracy are related but are not the same thing**.
+The most important lesson I took from this stage is:
+
+> Statistical significance, model fit, feature usefulness and predictive accuracy are related, but they are not the same thing.
 
 ---
 
-## 1. Train / validation / test model fit
+## 1. How well each model fits
+
+I compared MAE, RMSE and R² across training, validation and test data.
 
 | Model | Split | MAE | RMSE | R² |
 |---|---|---:|---:|---:|
@@ -33,144 +41,191 @@ The important lesson is that **statistical significance, model fit, feature usef
 | XGBoost | Validation | 2.6302 | 4.3893 | 0.9711 |
 | XGBoost | Test | 2.5824 | 4.9561 | 0.9596 |
 
-### Simple interpretation
+### What I learned from the train/validation/test gaps
 
-All three models still perform well on later unseen dates, so there is no evidence of catastrophic overfitting.
-
-Random Forest has the largest train-to-validation improvement gap:
+Random Forest has the biggest training advantage:
 
 - Train MAE: 1.82
 - Validation MAE: 2.63
 
-That shows it fits the training data more aggressively.
+That tells me Random Forest fits the training data more aggressively.
 
-XGBoost has a smaller gap:
+XGBoost has:
 
 - Train MAE: 2.45
 - Validation MAE: 2.63
 
-This is one reason the XGBoost result looks more stable even though Random Forest and XGBoost are extremely close on validation accuracy.
+Its gap is smaller.
 
-### What is R²?
+I do not see catastrophic overfitting because all three models still perform well on later validation and test dates.
 
-R² measures how much of the variation in waiting time the model explains.
+However, Random Forest looks more eager to fit the training data closely.
 
-For example, XGBoost test R² = 0.9596 means the fitted predictions explain about 96% of the variation in the synthetic test waiting times.
+### What R² means to me
 
-R² is useful, but it does not replace MAE/RMSE because customer-facing accuracy still needs to be understood in minutes.
+R² tells me how much of the variation in waiting time the model explains.
+
+For XGBoost:
+
+- Test R²: **0.9596**
+
+I interpret that as the fitted predictions explaining about 96% of the variation in waiting time in the synthetic test period.
+
+I do not use R² by itself because it does not tell me the average customer-facing error in minutes.
+
+That is why I still need MAE and RMSE.
 
 ---
 
-## 2. Linear Regression statistical model
+## 2. Why I fitted a statistical Linear Regression model
 
-For statistical inference, a companion OLS Linear Regression was fitted on the training set.
+The scikit-learn Linear Regression is useful for prediction, but I also wanted a version that could give me:
 
-The statistical version uses the same underlying predictor concepts, but categorical variables use reference-category encoding so that the coefficient matrix is identifiable.
+- p-values;
+- confidence intervals;
+- robust standard errors;
+- R²;
+- adjusted R².
 
-HC3 robust standard errors are used because the residual-variance test shows heteroscedasticity.
+So I fitted a companion OLS model using the same underlying predictor ideas.
 
-Training statistical fit:
+For categorical variables, I used reference-category encoding so the model matrix would be identifiable.
+
+Because I later found heteroscedasticity, I used **HC3 robust standard errors**.
+
+My statistical training fit was:
 
 - R²: **0.94855**
 - Adjusted R²: **0.94853**
 - Training rows: **64,074**
 - Estimated terms including intercept: **30**
 
-Adjusted R² is almost identical to R², which means adding the current terms is not producing a large artificial R² increase simply from having many predictors.
+Adjusted R² is almost the same as R², which tells me that adding the current terms is not artificially inflating the score by a large amount.
 
 ---
 
-## 3. Statistical significance
+## 3. What I learned from p-values
 
-Using HC3 robust standard errors, 26 of the 30 estimated terms have p < 0.05.
+Using HC3 robust standard errors, I found that 26 of the 30 estimated terms had p < 0.05.
 
-Four terms are not statistically significant at the 5% threshold:
+Four terms were not statistically significant at the 5% level:
 
 - Monday indicator
 - Tuesday indicator
 - Wednesday indicator
 - Peak-period indicator
 
-### Important interpretation
+This does not mean those concepts are useless.
 
-This does **not** mean those concepts are useless everywhere.
+For example, my EDA clearly showed that peak periods have higher raw average waiting times.
 
-For example, raw EDA shows peak periods have higher average waits.
+However, once I already control for stronger queue-state variables such as:
 
-However, after the regression already controls for actual queue state such as people ahead, workload and counters, the simple peak-period flag adds little independent linear information.
+- people ahead;
+- workload ahead;
+- open counters;
+- queue pressure;
 
-That is an important distinction:
+the simple peak-period flag adds little independent linear information.
 
-> A variable can show a raw group difference but become weak after more direct explanatory variables are included.
+That taught me something important:
 
-With more than 64,000 training observations, even very small effects can produce tiny p-values. Therefore p < 0.05 must not automatically be translated into "important for SmartQ".
+> A variable can show a raw group difference and still become weak after I control for better explanatory variables.
 
-Practical importance must also be examined through predictive error, effect size and feature-importance diagnostics.
+I also learned not to worship p-values.
+
+With more than 64,000 training rows, very small effects can become statistically significant.
+
+So I do not translate:
+
+`p < 0.05`
+
+into:
+
+"this feature is automatically important."
+
+I also look at effect size, prediction error, permutation importance and SHAP.
 
 ---
 
 ## 4. Group significance tests and effect size
 
+I ran simple group comparisons so I could understand the difference between statistical significance and practical size.
+
 ### General vs Priority
+
+I found:
 
 - General mean wait: 16.90 min
 - Priority mean wait: 9.66 min
-- Welch p-value: effectively < 0.001
+- p-value: effectively below 0.001
 - Cohen's d: **0.258**
 
-There is a statistically clear difference, but the standardised effect size is small-to-moderate rather than enormous.
+The difference is statistically clear, but the standardised effect is small-to-moderate rather than massive.
 
 ### Appointment vs Walk-in
+
+I found:
 
 - Appointment mean wait: 16.97 min
 - Walk-in mean wait: 12.97 min
 - p-value: 1.21e-74
 - Cohen's d: **0.142**
 
-The difference is statistically strong because of the large dataset, but the standardised effect is small.
+The p-value is extremely small because I have a very large dataset, but the effect size is small.
 
 ### Peak vs Non-peak
+
+I found:
 
 - Peak mean wait: 16.97 min
 - Non-peak mean wait: 14.47 min
 - p-value: 3.16e-36
 - Cohen's d: **0.089**
 
-Again, statistically significant but a very small standardised effect.
+Again, the difference is statistically detectable, but the standardised effect is very small.
 
 ### Service type
 
-A one-way ANOVA comparing the raw waiting-time means of Collections, ID Applications and Passport Applications gives:
+I also ran a one-way ANOVA across:
+
+- Collections
+- ID Applications
+- Passport Applications
+
+I found:
 
 - F = 0.4303
 - p = **0.6503**
 - eta-squared ≈ **0.000009**
 
-There is no meaningful raw overall waiting-time difference between the three service types in this generated dataset.
+I therefore did not find a meaningful raw overall waiting-time difference between the three service types.
 
-This is a useful reminder that a feature can still participate in a multivariable model even when its simple unadjusted group means are similar.
+This was useful because it reminded me that a feature can still participate in a multivariable model even when its simple raw group means are almost identical.
 
 ---
 
 ## 5. Multicollinearity and VIF
 
-### What is multicollinearity?
+### What multicollinearity means to me
 
-Multicollinearity means multiple predictors carry very similar information.
+Multicollinearity means that several predictors carry very similar information.
 
-This is mainly a problem for interpreting individual Linear Regression coefficients.
+This matters most when I want to interpret individual Linear Regression coefficients.
 
-### What is VIF?
+### Why I calculated VIF
 
-Variance Inflation Factor (VIF) measures how strongly one predictor can be explained by the other predictors.
+VIF means **Variance Inflation Factor**.
 
-A common rough interpretation is:
+I used it to measure how strongly each numeric predictor could be explained by the other predictors.
+
+A rough interpretation is:
 
 - around 1: little overlap
-- 5+: notable overlap
-- 10+: strong overlap
+- above 5: noticeable overlap
+- above 10: strong overlap
 
-Several SmartQ engineered queue variables have very high VIF:
+My largest VIF values were:
 
 | Feature | VIF |
 |---|---:|
@@ -182,108 +237,125 @@ Several SmartQ engineered queue variables have very high VIF:
 | workload_minutes_ahead | 33.18 |
 | open_general_counters | 7.79 |
 
-### Why is this happening?
+### Why I am not surprised
 
-These variables are deliberately related.
+These are engineered queue variables.
 
 For example:
 
-- queue pressure depends on waiting demand and available capacity;
-- workload ahead is strongly related to people ahead;
-- counter utilisation is related to serving count and counters.
+- queue pressure depends on demand and capacity;
+- workload ahead is closely related to people ahead;
+- counter utilisation is related to how many counters are active and serving.
 
-### Decision
+So I expected some overlap.
 
-We do **not** remove these variables from XGBoost or Random Forest solely because of high VIF.
+### My decision
 
-Tree models can still use overlapping signals for prediction.
+I did **not** automatically remove these variables from Random Forest or XGBoost.
 
-However, we must be careful when interpreting individual Linear Regression coefficients. With severe multicollinearity, coefficient signs and sizes can become unstable even when overall prediction remains good.
+VIF is mainly warning me that I should not interpret every Linear Regression coefficient as a clean independent causal effect.
 
-A reduced Linear Regression could be explored later if the main research goal becomes coefficient interpretation rather than prediction.
+If my main research goal later becomes coefficient interpretation, I could build a reduced Linear Regression with fewer overlapping features.
+
+For the current project, prediction is the main goal.
 
 ---
 
-## 6. Linear Regression assumption checks
+## 6. Linear Regression assumptions
 
 ### Heteroscedasticity
 
-Breusch-Pagan test:
+I ran the Breusch-Pagan test.
+
+I found:
 
 - LM statistic ≈ 13,674.78
 - p-value ≈ 0
 
-This indicates **heteroscedasticity**: the amount of prediction error changes across different queue conditions.
+This tells me the residual variance is not constant.
 
-That is not surprising because severe congestion produces much larger errors than quiet conditions.
+In simple English:
+
+> My Linear Regression errors are not equally spread under all queue conditions.
+
+That makes sense because quiet queues are easier to predict than extreme congestion.
 
 ### Residual normality
 
-Jarque-Bera test:
+I ran the Jarque-Bera test.
+
+I found:
 
 - statistic ≈ 163,042
 - p-value ≈ 0
 - residual skewness ≈ 0.85
 - residual kurtosis ≈ 10.63
 
-The residuals are not normally distributed.
+So the residuals are not normally distributed and they have heavy tails.
 
-With 64,000+ observations, formal normality tests are extremely sensitive, but the high kurtosis also confirms heavy error tails.
+With a dataset this large, formal tests are very sensitive, but the high kurtosis also confirms that the error distribution has extreme cases.
 
 ### Durbin-Watson
 
-Durbin-Watson ≈ **1.91**.
+I found:
 
-A value near 2 does not show obvious strong first-order residual autocorrelation in the fitted row order.
+- Durbin-Watson ≈ **1.91**
 
-This is not a complete time-dependence analysis; chronological splitting remains the main protection against unrealistic temporal leakage.
+A value near 2 does not show obvious strong first-order autocorrelation in the fitted row order.
 
-### Decision
+I do not treat that as a complete time-series test.
 
-Because heteroscedasticity is present, robust HC3 standard errors are used for the Linear Regression p-values and confidence intervals.
+My main protection against unrealistic temporal leakage is still the chronological split.
 
-The predictive model is still judged primarily on unseen validation/test performance, not on perfect satisfaction of classical OLS assumptions.
+### What I changed because of these tests
+
+Because heteroscedasticity is present, I use HC3 robust standard errors for the Linear Regression p-values and confidence intervals.
+
+I still judge prediction mainly using unseen validation/test performance.
 
 ---
 
-## 7. Negative raw predictions
+## 7. Negative predictions
 
-Regression algorithms can mathematically predict values below zero even though negative waiting time makes no operational sense.
+A regression model can mathematically predict a value below zero even when the real-world quantity cannot be negative.
 
-On the test set:
+On my test set:
 
 - Linear Regression produced 2,192 raw negative predictions.
 - XGBoost produced 962 raw negative predictions.
-- Random Forest produced 0 raw negative predictions.
+- Random Forest produced 0.
 
-For XGBoost the negatives are generally small:
+For XGBoost, the negative values are usually small:
 
-- minimum raw prediction ≈ -1.04 min
-- median among negative predictions ≈ -0.10 min
+- minimum ≈ -1.04 min
+- median negative prediction ≈ -0.10 min
 
-### Decision
-
-Customer-facing predictions are clipped at zero:
+A customer cannot wait -0.10 minutes, so I explicitly clip customer-facing predictions using:
 
 `max(0, prediction)`
 
-This rule is already present in the SmartQ prediction helper.
-
-This is transparent post-processing based on a real-world constraint, not hidden model manipulation.
+I see this as a practical constraint, not hidden model manipulation.
 
 ---
 
 ## 8. Permutation importance
 
-### What is permutation importance?
+I wanted a feature-importance method that measures actual predictive damage.
 
-Take one feature and randomly shuffle it.
+So I used **permutation importance**.
 
-If model MAE becomes much worse, that feature contained useful predictive information.
+The idea is simple:
 
-Selected XGBoost test MAE before shuffling:
+1. I measure normal test MAE.
+2. I shuffle one feature.
+3. I predict again.
+4. I see how much worse MAE becomes.
 
-**2.5824 min**
+If shuffling a feature destroys performance, that feature was useful.
+
+My baseline XGBoost test MAE was:
+
+**2.5824 minutes**
 
 Largest MAE increases after shuffling:
 
@@ -298,23 +370,19 @@ Largest MAE increases after shuffling:
 | counter_utilisation | +0.22 min |
 | queue_type | +0.20 min |
 
-This gives strong evidence that workload, position in the queue and effective serving capacity are genuinely useful to XGBoost prediction.
-
-Small negative permutation values for a few low-importance features should be interpreted as noise/redundancy, not proof that those variables are harmful.
+This gave me strong evidence that workload, queue position and serving capacity really matter for prediction.
 
 ---
 
-## 9. SHAP explanation
+## 9. SHAP / TreeSHAP
 
-### What is SHAP?
+I also used XGBoost TreeSHAP.
 
-SHAP estimates how much each feature pushes a model prediction up or down.
+SHAP helps me answer:
 
-For a single customer it can answer:
+> How much did each feature push the prediction up or down?
 
-> "Why did the model predict this waiting time?"
-
-Using XGBoost TreeSHAP on a fixed 5,000-row test sample, the strongest average absolute contributions are:
+On a fixed 5,000-row test sample, my strongest average absolute SHAP contributions were:
 
 | Feature | Mean absolute SHAP contribution |
 |---|---:|
@@ -325,55 +393,66 @@ Using XGBoost TreeSHAP on a fixed 5,000-row test sample, the strongest average a
 | queue_pressure_index | 1.47 |
 | open_general_counters | 0.76 |
 
-SHAP and permutation importance tell a consistent story: the amount of work ahead and the capacity available to process it are the main prediction signals.
+The useful thing is that SHAP and permutation importance tell me a similar story.
+
+Both say that the main predictive signals are:
+
+- how much work is ahead;
+- how many people are ahead;
+- how much serving capacity is available;
+- how pressured the queue is.
+
+That makes operational sense.
 
 ---
 
-## 10. Is the selected model a good fit?
+## 10. Do I think XGBoost is a good fit?
 
-For the current **synthetic SmartQ dataset**, yes, with important limitations.
+For my **synthetic SmartQ dataset**, yes.
 
-Evidence supporting a useful predictive fit:
+My evidence is:
 
-- XGBoost validation MAE ≈ 2.63 min.
-- XGBoost test MAE ≈ 2.58 min.
-- XGBoost test R² ≈ 0.960.
-- Validation and test performance are close.
-- It strongly beats the simple mean baseline.
-- It improves on the existing deterministic ETA.
-- Permutation importance and SHAP identify operationally sensible features.
+- validation MAE ≈ 2.63 min;
+- test MAE ≈ 2.58 min;
+- test R² ≈ 0.960;
+- validation and test performance are close;
+- it strongly beats the mean baseline;
+- it improves on the deterministic SmartQ ETA;
+- permutation importance and SHAP point to sensible operational variables.
 
-Reasons not to overclaim:
+But I also keep the limitations visible:
 
 - all training/evaluation data is synthetic;
 - busy-traffic MAE is much worse;
-- engineered queue features are strongly correlated;
-- raw XGBoost can produce small negative values before clipping;
-- model performance on a real deployment is still unknown.
+- some engineered queue variables overlap heavily;
+- raw XGBoost can produce small negative values;
+- real-world accuracy is still unknown.
 
-Therefore the correct conclusion is:
+So my conclusion is:
 
-> XGBoost is a strong prototype fit for the synthetic SmartQ operational dataset and a reasonable integration candidate, but real-world accuracy still requires representative live data and external validation.
+> I consider XGBoost a strong prototype fit for the synthetic SmartQ data and a reasonable integration candidate. I do not treat it as proven production performance until I validate it on representative live data.
 
 ---
 
-## 11. What changed because of this diagnostics stage?
+## 11. Did diagnostics change my selected model?
 
-The selected model did **not** change.
+No.
 
-Why?
+I kept XGBoost.
 
-The new diagnostics do not show a methodological reason to override the predefined validation-MAE selection rule.
+The diagnostics did not give me a strong methodological reason to break my predefined validation-MAE selection rule.
 
-Instead, this stage improved our understanding:
+Instead, they helped me understand the choice better.
 
-- XGBoost generalises well on the generated later dates.
-- Random Forest fits training data more aggressively.
-- Several Linear Regression coefficients are difficult to interpret because of multicollinearity.
-- Classical OLS constant-variance/normal-error assumptions do not hold perfectly.
-- HC3 robust inference is therefore more appropriate.
-- Statistical significance is not the same as practical importance.
-- workload, people ahead and effective counter capacity are genuinely important predictive signals.
-- busy conditions and non-negative prediction handling remain important limitations.
+I learned that:
 
-That is exactly what diagnostics are supposed to do: improve understanding rather than blindly force a model change.
+- XGBoost generalises well on later synthetic dates;
+- Random Forest fits the training data more aggressively;
+- Linear Regression coefficient interpretation is affected by multicollinearity;
+- the classical constant-variance and normal-error assumptions are not perfect;
+- HC3 robust inference is more appropriate;
+- p-values are not the same as predictive usefulness;
+- workload ahead, people ahead and serving capacity are strong signals;
+- busy queues remain my biggest modelling weakness.
+
+That is exactly why I added diagnostics: not to force a different winner, but to understand what my model is doing.
