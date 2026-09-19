@@ -1,37 +1,220 @@
-# Report-Ready SmartQ Machine-Learning Methodology
+# My SmartQ Machine-Learning Methodology
 
 ## Data understanding
 
-The SmartQ dataset contained 100,000 synthetic operational queue records representing appointments, walk-ins, General and Priority queues, multiple service types, active counters, queue-state measurements and service outcomes. Exploratory data analysis was performed to inspect record distributions, missing values, waiting-time behaviour and data-quality constraints. For the regression experiment, only the 92,655 completed visits were retained because cancelled and no-show records did not contain a genuine completed waiting-time outcome.
+I started with a synthetic SmartQ dataset containing 100,000 operational queue records.
 
-## Data preparation
+The dataset represents appointments, walk-ins, General and Priority queues, multiple service types, active counters, queue-state measurements and final service outcomes.
 
-The prediction target was `actual_wait_minutes`, defined as the time from customer check-in until the customer was called for service. Only variables available at prediction time were used as model inputs. Post-outcome variables such as call time, actual service duration and service-completion timestamps were excluded to prevent data leakage.
+Before modelling, I performed EDA because I wanted to understand the data before trusting any model result.
 
-Numeric missing values were imputed using medians learned from the training partition, while categorical missing values used the most frequent training value. Categorical variables were converted using one-hot encoding.
+I inspected:
 
-The completed records were divided chronologically by whole operating dates. The training set contained 64,074 records from 2 January to 16 June 2026, the validation set contained 14,665 records from 17 June to 22 July 2026, and the test set contained 13,916 records from 23 July to 27 August 2026. This approach prevented records from the same operating day from appearing across different partitions.
+- record distributions;
+- missing values;
+- waiting-time behaviour;
+- queue patterns;
+- data-quality rules;
+- possible leakage.
 
-## Modelling
+For the regression task, I kept only the **92,655 completed visits**.
 
-Three regression algorithms specified in the project proposal were trained using the same prepared dataset: Linear Regression, Random Forest and XGBoost. A simple mean-waiting-time predictor was used as the required baseline. The existing deterministic SmartQ ETA was also evaluated as an additional engineering benchmark but was not used as an input to the machine-learning models.
+I excluded cancelled and no-show records because those records do not have a genuine completed waiting-time outcome.
 
-Limited manual parameter tuning was performed for Random Forest and XGBoost. The purpose was to obtain reasonable model configurations while keeping the comparison understandable and appropriate for a third-year mini-capstone project.
+## Target definition
 
-## Evaluation
+My prediction target is:
 
-Models were compared using Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE). The model-selection rule was fixed in advance as the lowest validation MAE.
+`actual_wait_minutes`
 
-Validation MAE values were 4.1146 minutes for Linear Regression, 2.6315 minutes for Random Forest and 2.6302 minutes for XGBoost. XGBoost therefore achieved the lowest validation MAE and was selected for integration.
+I define it as the time from customer check-in until the customer is called for service.
 
-The selected XGBoost model was then evaluated on the untouched chronological test set, producing an MAE of 2.5824 minutes and RMSE of 4.9561 minutes. The mean-wait baseline produced a test MAE of 14.9850 minutes, while the existing deterministic SmartQ ETA produced a test MAE of 4.6386 minutes.
+I chose this target because it directly matches the SmartQ customer question:
 
-Random Forest produced a slightly lower test MAE of 2.5231 minutes. However, it was not substituted for XGBoost after the test results were observed because the final test set was not intended for model selection. Keeping XGBoost preserved the predefined validation-based evaluation process.
+> How long am I likely to wait before I am called?
 
-## Traffic-condition analysis
+## Feature selection
 
-The selected model was additionally evaluated under low, moderate and busy synthetic queue conditions. XGBoost achieved a test MAE of approximately 1.22 minutes under low traffic, 2.95 minutes under moderate traffic and 7.94 minutes under busy conditions. This indicates that prediction becomes more difficult during heavy congestion and should be reported as a limitation.
+I used only information that would be available at prediction time.
 
-## Interpretation and limitation
+Examples include:
 
-The results show that the machine-learning models can learn the operational patterns deliberately represented in the synthetic SmartQ dataset. They do not prove equivalent performance in a real government, university, clinic or commercial queue. The model should therefore be treated as a prototype demonstration until representative real operational data becomes available for external validation and retraining.
+- people ahead;
+- queue pressure;
+- workload ahead;
+- active counters;
+- recent average service duration;
+- recent average waiting time;
+- throughput;
+- service type;
+- branch;
+- queue lane;
+- time features.
+
+I excluded post-outcome fields such as:
+
+- actual waiting time;
+- call time;
+- actual service duration;
+- service start time;
+- completion time.
+
+I did this to prevent data leakage.
+
+## Missing values
+
+I found that some recent-history variables are naturally missing early in an operating day.
+
+I did not delete those valid records.
+
+Instead:
+
+- I used the training-set median for numeric missing values;
+- I used the most frequent training category for categorical missing values.
+
+I fit the imputation rules using training data only so validation and test information could not leak backward into preprocessing.
+
+## Categorical encoding
+
+I one-hot encoded categorical variables.
+
+I chose one-hot encoding because variables such as branch code and service code do not have a natural numeric order.
+
+I avoided ordinal encoding because it would incorrectly imply an order between categories.
+
+## Train / validation / test split
+
+I split completed visits chronologically by whole operating dates:
+
+- Training: 64,074 rows, 2 Jan to 16 Jun 2026
+- Validation: 14,665 rows, 17 Jun to 22 Jul 2026
+- Test: 13,916 rows, 23 Jul to 27 Aug 2026
+
+I chose this instead of a random row split because SmartQ will learn from past operational behaviour and predict later behaviour.
+
+I also wanted to prevent same-day queue conditions from appearing in both training and test data.
+
+## Baselines
+
+I used two baselines.
+
+### Mean baseline
+
+I predicted the same training-set mean wait for every customer.
+
+I used this because a complex ML model should easily beat a simple average if it is genuinely useful.
+
+### Existing SmartQ deterministic ETA
+
+I also evaluated the current formula-style ETA as an engineering benchmark.
+
+I did not use that ETA as an ML feature because I wanted the official models to learn directly from queue conditions.
+
+## Models I trained
+
+I trained the three regression models defined in the project proposal:
+
+1. Linear Regression
+2. Random Forest
+3. XGBoost
+
+I used the same prepared data and the same validation/test periods so the comparison would be fair.
+
+## Why I kept tuning limited
+
+I tested a small number of understandable parameter combinations for Random Forest and XGBoost.
+
+I did not run a huge grid search.
+
+I made that decision because:
+
+- the proposal calls for limited tuning;
+- I wanted to avoid overfitting the validation set;
+- I wanted the experiment to stay understandable;
+- this is a third-year capstone rather than a benchmark competition.
+
+## Evaluation metrics
+
+I used:
+
+- MAE
+- RMSE
+- R² for diagnostics
+
+I used MAE as the official model-selection metric because it is easy to interpret in minutes.
+
+I fixed the rule before test evaluation:
+
+> Lowest validation MAE among the three official models wins.
+
+## Validation results
+
+Validation MAE:
+
+- Linear Regression: 4.1146 min
+- Random Forest: 2.6315 min
+- XGBoost: **2.6302 min**
+
+I therefore selected XGBoost.
+
+Random Forest and XGBoost are effectively very close, so I do not claim a dramatic difference.
+
+## Final test results
+
+My selected XGBoost model achieved:
+
+- Test MAE: **2.5824 min**
+- Test RMSE: **4.9561 min**
+- Test R²: **0.9596**
+
+The mean baseline produced:
+
+- Test MAE: **14.9850 min**
+
+The deterministic SmartQ ETA produced:
+
+- Test MAE: **4.6386 min**
+
+Random Forest happened to produce a slightly lower test MAE of 2.5231 minutes.
+
+I kept XGBoost because the test set was not supposed to select the model.
+
+## Diagnostics I added
+
+I later expanded the analysis with:
+
+- train/validation/test fit comparison;
+- R² and adjusted R²;
+- Linear Regression p-values;
+- robust confidence intervals;
+- VIF;
+- residual diagnostics;
+- heteroscedasticity testing;
+- group significance tests;
+- effect sizes;
+- permutation importance;
+- TreeSHAP.
+
+I added these because I wanted to understand the models, not just submit an error score.
+
+## Main diagnostic finding
+
+My XGBoost model performs strongly overall on synthetic data but degrades under heavy congestion.
+
+Traffic-specific test MAE:
+
+- Low: 1.22 min
+- Moderate: 2.95 min
+- Busy: 7.94 min
+
+I treat this as a real limitation.
+
+## Final interpretation
+
+My results show that the three models can learn the operational patterns present in the synthetic SmartQ dataset.
+
+I do **not** claim that the same accuracy is guaranteed in a real government office, university, clinic or business.
+
+I treat the current work as a prototype demonstration of a correct ML process.
+
+Before real deployment, I would need representative operational data, live validation, monitoring and retraining.
