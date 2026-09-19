@@ -1246,3 +1246,16 @@ Every meaningful ML change should leave evidence in at least one of these places
 - this `.project-notes/README.md` for the plain-English engineering worklog and decision history.
 
 This file should be updated whenever we make a major decision, change preprocessing, change the selected model, add integration behaviour, discover a limitation, or change the evaluation procedure.
+
+
+---
+
+## 41. Dedicated ML learning guide
+
+A separate plain-English learning reference now lives at:
+
+`.project-notes/ML_LEARNING_GUIDE.md`
+
+It explains the ML terminology, Linear Regression, Random Forest, XGBoost, preprocessing, metrics, model quality, feature quality, overfitting, generalisation, p-values, R², VIF, feature importance, permutation importance and SHAP in simple English.
+
+From this point onward, new ML terms should be defined in simple English before being used in project decisions.
