@@ -1,108 +1,123 @@
-# SmartQ EDA Visual Analysis — Plain English
+# My SmartQ EDA Visual Analysis
 
-The EDA notebook now contains additional visual comparisons and significance checks so the data-understanding stage is easier to learn from and easier to present.
+## Why I added more visuals
 
-## Added visuals
+I did not want my EDA notebook to contain charts only for decoration.
 
-The notebook now includes visual comparisons for:
+I wanted each chart to answer a specific question about the data.
 
+I therefore expanded the EDA so I could understand and explain the dataset visually before discussing model results.
+
+## Visuals I included
+
+I now use charts for:
+
+- waiting-time distribution;
+- average wait by branch;
+- average wait by hour;
+- average wait by weekday;
+- queue pressure vs actual waiting time;
 - General vs Priority waiting time;
 - Appointment vs Walk-in waiting time;
 - Peak vs Non-peak waiting time;
 - waiting time by service type;
 - missing values among completed visits;
-- correlation between selected queue-state variables.
+- correlation between selected numeric queue-state variables.
 
-These are in addition to the existing:
-
-- waiting-time histogram;
-- branch waiting-time comparison;
-- hourly waiting-time trend;
-- weekday waiting-time comparison;
-- queue-pressure vs waiting-time scatter plot.
-
-## What the new charts show
-
-### General vs Priority
+## What I learned from General vs Priority
 
 Average completed wait:
 
-- General: **16.90 min**
-- Priority: **9.66 min**
+- General: **16.90 minutes**
+- Priority: **9.66 minutes**
 
-Priority customers wait less in the generated data, which is consistent with SmartQ's separate priority-lane design.
+The visual makes the difference easy to see.
 
-This does not prove a universal real-world effect. It describes the synthetic scenario.
+Later, I also tested the difference statistically. It is clearly detectable, but the effect size is not enormous.
 
-### Appointment vs Walk-in
+This taught me not to stop at the chart itself.
 
-Average completed wait:
-
-- Appointment: **16.97 min**
-- Walk-in: **12.97 min**
-
-Appointments have a higher raw mean wait in this generated dataset.
-
-This should not automatically be interpreted as "appointments are worse". The groups can arrive under different queue conditions.
-
-### Peak vs Non-peak
+## What I learned from Appointment vs Walk-in
 
 Average completed wait:
 
-- Peak: **16.97 min**
-- Non-peak: **14.47 min**
+- Appointment: **16.97 minutes**
+- Walk-in: **12.97 minutes**
 
-Peak periods are worse on average, but the difference is not huge relative to the overall spread of waiting times.
+The visual shows that appointments have a higher raw average wait in my generated data.
 
-### Service type
+I avoid saying that appointments "cause" longer waits because the groups can experience different queue conditions.
+
+## What I learned from Peak vs Non-peak
 
 Average completed wait:
 
-- Collections: **16.11 min**
-- ID Applications: **16.05 min**
-- Passport Applications: **15.90 min**
+- Peak: **16.97 minutes**
+- Non-peak: **14.47 minutes**
 
-The service means are extremely similar.
+The chart shows a difference, but later I found that the standardised effect size is small.
 
-The one-way ANOVA p-value is **0.6503**, so there is no statistically detectable overall raw service-type difference in waiting time in this synthetic dataset.
+This was a good example of why visual difference, statistical significance and practical importance are three different questions.
 
-### Missing values
+## What I learned from service type
+
+Average completed wait:
+
+- Collections: **16.11 minutes**
+- ID Applications: **16.05 minutes**
+- Passport Applications: **15.90 minutes**
+
+The chart shows that these raw averages are almost identical.
+
+I confirmed that with a one-way ANOVA:
+
+- p-value: **0.6503**
+- eta-squared: about **0.000009**
+
+That means I did not find a meaningful raw overall waiting-time difference between the three service types in this synthetic dataset.
+
+## Why I visualised missing values
+
+I wanted to distinguish expected missingness from bad data.
 
 The main missing values among completed visits are:
 
-- `appointment_at`: 21,864 rows — expected because walk-ins do not have appointments;
-- `recent_avg_service_minutes_10`: 2,775 rows — expected early-day history gaps;
-- `recent_avg_wait_minutes_10`: 313 rows — expected early-day history gaps.
+- `appointment_at`: expected for walk-ins;
+- `recent_avg_service_minutes_10`: expected early in the day;
+- `recent_avg_wait_minutes_10`: expected when recent history is not yet available.
 
-The chart is useful because it separates **expected missingness** from corrupted data.
+The chart helped me see that the missingness pattern is explainable.
 
-### Correlation matrix
+## Why I added a correlation matrix
 
-The correlation visual shows that several engineered queue variables carry similar information.
+Correlation measures how strongly two numeric variables move together.
 
-Examples include:
+I added the matrix because I suspected that some engineered queue variables were carrying similar information.
 
-- people ahead and workload ahead;
-- general waiting and queue pressure;
-- serving count and counter utilisation.
+The visual showed strong relationships among features such as:
 
-That observation led directly to the later VIF/multicollinearity analysis.
+- people ahead;
+- workload ahead;
+- queue pressure;
+- general waiting;
+- serving count;
+- counter utilisation.
 
-## Why this improves the EDA
+That observation later led me to the VIF and multicollinearity analysis.
 
-A good EDA should not just produce charts.
+## What I learned about charts
 
-Each chart should answer a question.
+My biggest lesson here is that a useful EDA chart should answer a question.
 
-The updated EDA now covers:
+I now use the EDA visuals to answer:
 
 1. What does the target distribution look like?
-2. Do branches/time periods differ?
-3. Does queue pressure relate to waiting time?
-4. Do operational groups differ?
+2. Do branches and time periods behave differently?
+3. Does congestion relate to waiting time?
+4. Do important operational groups differ?
 5. Where are values missing?
-6. Which variables are related to each other?
-7. Are observed group differences statistically detectable?
-8. Are statistically detectable differences also practically large?
+6. Which numeric features move together?
+7. Are the differences statistically detectable?
+8. Are the differences large enough to matter in practice?
 
-That is a much stronger Data Understanding stage than simply plotting a few graphs.
+That gives me a much stronger Data Understanding stage than simply producing graphs and moving on.
