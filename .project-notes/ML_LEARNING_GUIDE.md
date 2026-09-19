@@ -1,1034 +1,510 @@
-# SmartQ ML Learning Guide — Plain English
+# My SmartQ ML Learning Guide
 
-> This file is for learning, not just submission.
+> I use this file to learn the machine-learning concepts behind my own project.
 >
-> Rule used throughout this project: whenever an ML term appears, explain what it means, why it matters, and where SmartQ uses it.
+> I do not assume that knowing a term means I understand it. For every important term, I want to know what it means, why it matters, how I used it, and what its limitation is.
 
 ---
 
-## 1. What machine learning is doing in SmartQ
+## 1. What machine learning means in my project
 
-Machine learning is not magic.
-
-SmartQ gives a model examples of past queue situations together with the waiting time that actually happened.
+I give a model examples of past queue situations together with the waiting time that actually happened.
 
 Example:
 
-- 8 people ahead
-- 3 counters open
-- queue pressure high
-- service = ID application
-- time = 10:30
-- actual wait = 24 minutes
+- people ahead: 8
+- counters open: 3
+- queue pressure: high
+- service: ID application
+- actual wait: 24 minutes
 
-The model studies many examples like this and learns patterns.
+The model studies many examples like this.
 
-Later, when a new customer checks in, SmartQ gives the model the current queue situation and asks:
-
-> "Based on the patterns you learned, how long is this customer likely to wait?"
+Later, when a new customer checks in, I give the model the current queue situation and ask it to estimate the waiting time.
 
 That is supervised machine learning.
 
-### Supervised learning
+---
 
-**Supervised learning** means the training data contains both:
+## 2. Supervised learning
 
-1. the inputs, and
+Supervised learning means I have:
+
+1. input variables;
 2. the correct answer.
 
-For SmartQ:
+In SmartQ:
 
-- inputs = queue conditions
-- correct answer = actual waiting time
+- inputs = queue conditions;
+- correct answer = actual waiting time.
 
 ---
 
-## 2. Core words you must understand
+## 3. Dataset
 
-### Dataset
+A dataset is the collection of records I use for analysis and training.
 
-A **dataset** is the collection of records used for analysis and training.
+My main SmartQ dataset has 100,000 synthetic operational records.
 
-SmartQ currently has 100,000 synthetic operational records.
+---
 
-### Row / observation
+## 4. Observation / row
 
-One row is one recorded queue event or customer visit.
+One row is one recorded SmartQ queue event or customer visit.
 
-### Feature
+---
 
-A **feature** is an input variable the model can use.
+## 5. Feature
+
+A feature is an input variable I give the model.
 
 Examples:
 
-- people ahead
-- number of open counters
-- queue pressure
-- service type
-- branch
-- time of day
+- people ahead;
+- open counters;
+- queue pressure;
+- service type;
+- branch;
+- time of day.
 
-Think of features as the clues we give the model.
+I think of features as the clues the model receives.
 
-### Target
+---
 
-The **target** is the answer we want the model to predict.
+## 6. Target
 
-SmartQ target:
+The target is the answer I want the model to predict.
+
+My target is:
 
 `actual_wait_minutes`
 
-### Regression
+---
 
-**Regression** means predicting a number.
+## 7. Regression
 
-Examples:
+Regression means predicting a number.
 
-- waiting time = 12.4 minutes
-- house price = R1.2 million
-- temperature = 27.5°C
-
-SmartQ is a regression problem because waiting time is numeric.
-
-### Classification
-
-**Classification** means predicting a category.
-
-Example:
-
-- no-show / not no-show
-- fraud / not fraud
-- urgent / normal
-
-SmartQ could later build a no-show classification model.
+My SmartQ problem is regression because I predict a number of minutes.
 
 ---
 
-## 3. Training, validation and test data
+## 8. Classification
 
-### Training set
+Classification means predicting a category.
 
-The **training set** is what the model learns from.
+A future SmartQ example could be:
 
-Think of it as studying from textbooks and examples.
+- no-show;
+- not a no-show.
 
-SmartQ training rows: 64,074.
-
-### Validation set
-
-The **validation set** is used while deciding which model or settings are best.
-
-Think of it as a practice exam.
-
-SmartQ validation rows: 14,665.
-
-### Test set
-
-The **test set** is the final unseen exam.
-
-It should not be used to choose the winning model.
-
-SmartQ test rows: 13,916.
-
-### Why SmartQ uses chronological splitting
-
-We train on earlier dates and evaluate on later dates.
-
-That better matches real deployment:
-
-> learn from the past -> predict the future
+That would be a classification problem, not waiting-time regression.
 
 ---
 
-## 4. Baseline
+## 9. Training data
 
-A **baseline** is a simple reference method.
+Training data is what the model learns from.
+
+I think of it as the study material.
+
+I use 64,074 completed visits for training.
+
+---
+
+## 10. Validation data
+
+Validation data is what I use while deciding which model/settings are best.
+
+I think of it as a practice exam.
+
+I use 14,665 visits for validation.
+
+---
+
+## 11. Test data
+
+Test data is the final unseen exam.
+
+I use 13,916 visits.
+
+I do not want to choose the winning model using the test set.
+
+---
+
+## 12. Baseline
+
+A baseline is a simple method I use for comparison.
+
+I use:
+
+- mean waiting time;
+- deterministic SmartQ ETA.
+
+If my complex model cannot beat something simple, then the complexity is difficult to justify.
+
+---
+
+## 13. MAE
+
+MAE means **Mean Absolute Error**.
 
 It answers:
 
-> "Is the ML model actually better than something very simple?"
+> On average, how many minutes wrong am I?
 
-SmartQ uses two benchmarks.
-
-### Mean baseline
-
-Predict the same average training wait for everyone.
-
-Very simple, but useful.
-
-### Deterministic ETA
-
-SmartQ already has a formula-based waiting-time estimate.
-
-This gives us another useful comparison.
-
----
-
-## 5. MAE and RMSE
-
-### MAE
-
-**Mean Absolute Error**
-
-Plain English:
-
-> On average, how many minutes wrong was the model?
-
-If:
-
-MAE = 2.5
-
-then the model is about 2.5 minutes wrong on average.
-
-Lower is better.
-
-### RMSE
-
-**Root Mean Squared Error**
-
-Plain English:
-
-> Similar to MAE, but large mistakes hurt the score more.
-
-Why useful?
-
-A model that is usually correct but occasionally makes huge mistakes can still have a reasonable MAE.
-
-RMSE exposes those big failures more strongly.
+If MAE = 2.5, I am about 2.5 minutes wrong on average.
 
 Lower is better.
 
 ---
 
-# MODEL 1 — LINEAR REGRESSION
+## 14. RMSE
 
-## 6. What Linear Regression is
+RMSE means **Root Mean Squared Error**.
 
-Linear Regression tries to create a mathematical relationship between features and the target.
+It is another prediction-error measure, but it punishes large mistakes more heavily.
 
-Very simplified idea:
+I use it because a model that is usually accurate but sometimes makes huge mistakes should not look completely safe.
 
-`predicted wait = base value + feature effects`
-
-Example concept:
-
-`wait = 3 + (2 × people_ahead) - (1.5 × open_counters)`
-
-The actual SmartQ model has more variables, but the idea is the same.
-
-### Coefficient
-
-A **coefficient** is the weight Linear Regression gives to a feature.
-
-Example:
-
-If the coefficient for `people_ahead` is positive, increasing people ahead tends to increase the predicted wait.
-
-If the coefficient for `open_counters` is negative, more counters may reduce predicted wait.
-
-Do not automatically interpret coefficients as cause and effect.
+Lower is better.
 
 ---
 
-## 7. Steps used for SmartQ Linear Regression
+## 15. R²
 
-### Step 1 — choose valid rows
+R² means **R-squared**.
 
-Use completed visits only.
+It asks:
 
-Why?
+> How much of the variation in waiting time does my model explain?
 
-No-shows and cancellations do not have a genuine completed wait.
+For XGBoost, test R² is about 0.960.
 
-### Step 2 — choose valid features
+I read that as about 96% of the variation in the synthetic test waiting times being explained by the fitted predictions.
 
-Use information known at check-in time.
-
-Why?
-
-The model must only use information that would really exist when the prediction is made.
-
-### Step 3 — handle missing values
-
-Numeric missing values are filled with the training-set median.
-
-Why?
-
-Some recent-history features are naturally missing early in the day.
-
-### Step 4 — encode categories
-
-Branch, service, queue type and similar text values are one-hot encoded.
-
-Why?
-
-Linear Regression needs numeric inputs.
-
-### Step 5 — fit the model
-
-The model calculates coefficients that reduce prediction error on training data.
-
-### Step 6 — evaluate on validation data
-
-We calculate MAE and RMSE.
-
-SmartQ Linear Regression validation:
-
-- MAE: about 4.11 minutes
-- RMSE: about 6.15 minutes
-
-### Step 7 — compare against other models
-
-Linear Regression is simple and useful, but tree models performed better.
+I still need MAE/RMSE because R² does not tell me the error in minutes.
 
 ---
 
-## 8. Why keep Linear Regression if it loses?
+# LINEAR REGRESSION
 
-Because it teaches us something.
+## 16. How I understand Linear Regression
 
-It is:
+Linear Regression tries to create one mathematical relationship between inputs and the target.
 
-- simple
-- fast
-- interpretable
-- a useful benchmark
-- good for statistical diagnostics
+A simplified example is:
 
-If a complex model only slightly beats Linear Regression, the complex model may not be worth the extra complexity.
+`wait = base + people_ahead effect - open_counter effect + queue_pressure effect`
+
+The real model has more variables.
 
 ---
 
-## 9. Linear Regression diagnostics we should understand
+## 17. Coefficient
 
-### R²
+A coefficient is the weight Linear Regression gives a variable.
 
-**R-squared**
+A positive coefficient pushes the prediction upward.
 
-Plain English:
+A negative coefficient pushes it downward.
 
-> How much of the variation in waiting time does the model explain?
-
-Example:
-
-R² = 0.70
-
-means the model explains about 70% of the variation in the target.
-
-Higher is usually better, but a high R² does not guarantee good predictions.
-
-### Adjusted R²
-
-Similar to R², but it penalises adding useless variables.
-
-Useful when comparing Linear Regression models with different numbers of features.
-
-### Residual
-
-A **residual** is:
-
-`actual value - predicted value`
-
-Example:
-
-actual wait = 20
-
-predicted wait = 16
-
-residual = 4 minutes
-
-Residual analysis helps us see where the model fails.
-
-### p-value
-
-A **p-value** is used in statistical testing.
-
-Very simplified meaning:
-
-> "If there were really no relationship here, how surprising would this result be?"
-
-A small p-value can suggest that a coefficient is statistically distinguishable from zero.
-
-Common threshold:
-
-`p < 0.05`
-
-But this does NOT automatically mean the feature is practically important.
-
-With 90,000+ rows, tiny effects can become statistically significant.
-
-### Confidence interval
-
-A **confidence interval** gives a plausible range for a coefficient estimate.
-
-Example:
-
-people_ahead coefficient:
-
-1.2 to 1.5 minutes
-
-This shows uncertainty around the estimated effect.
-
-### VIF
-
-**Variance Inflation Factor**
-
-Plain English:
-
-> Are some input variables basically repeating the same information?
-
-High VIF can indicate multicollinearity.
-
-### Multicollinearity
-
-This means two or more features are strongly related to each other.
-
-Example:
-
-- queue_position
-- people_ahead
-
-These may contain nearly the same information.
-
-This makes Linear Regression coefficients harder to interpret.
+I do not automatically interpret a coefficient as causation.
 
 ---
 
-# MODEL 2 — RANDOM FOREST
+## 18. Why I trained Linear Regression
 
-## 10. What a Decision Tree is first
+I used it because it is:
 
-Random Forest is built from decision trees.
+- simple;
+- fast;
+- easy to compare;
+- useful for statistics;
+- a good lower-complexity benchmark.
 
-A tree asks a series of questions.
+Its weakness is that real queue behaviour is not perfectly linear.
+
+---
+
+## 19. R² vs adjusted R²
+
+Regular R² can increase when I add variables, even weak ones.
+
+Adjusted R² penalises unnecessary terms.
+
+My OLS model has:
+
+- R² ≈ 0.94855;
+- adjusted R² ≈ 0.94853.
+
+Because they are almost identical, I do not see a large artificial increase from simply adding more terms.
+
+---
+
+## 20. Residual
+
+A residual is:
+
+`actual - predicted`
+
+If actual wait is 20 minutes and I predicted 16, the residual is +4.
+
+Residuals help me see how the model fails.
+
+---
+
+## 21. p-value
+
+A p-value helps me ask:
+
+> If there were really no coefficient effect, how surprising would my result be?
+
+A common threshold is p < 0.05.
+
+I learned that a small p-value does not automatically mean a feature is practically important.
+
+With a large dataset, very small effects can become statistically significant.
+
+---
+
+## 22. Confidence interval
+
+A confidence interval gives me a plausible range for a coefficient estimate.
+
+It reminds me that the coefficient is an estimate, not an exact universal truth.
+
+---
+
+## 23. Multicollinearity
+
+Multicollinearity means several predictors carry similar information.
+
+My queue variables have a lot of this because features such as people ahead, workload and queue pressure are naturally related.
+
+This makes individual Linear Regression coefficients harder to interpret.
+
+---
+
+## 24. VIF
+
+VIF means **Variance Inflation Factor**.
+
+I use it to detect overlapping predictors.
+
+Some of my queue features have VIF values above 30 or 40.
+
+I do not automatically remove them from tree models, but I use the result as a warning when I interpret Linear Regression coefficients.
+
+---
+
+## 25. Heteroscedasticity
+
+Heteroscedasticity means the error spread changes across conditions.
+
+In my project, quiet queues can be easier to predict than severe congestion.
+
+I found strong evidence of heteroscedasticity in the Linear Regression residuals.
+
+That is why I use HC3 robust standard errors.
+
+---
+
+## 26. Robust standard error
+
+A robust standard error is a safer estimate of coefficient uncertainty when classical variance assumptions do not hold perfectly.
+
+It does not change the fitted coefficient.
+
+It changes how I judge uncertainty, confidence intervals and p-values.
+
+---
+
+# RANDOM FOREST
+
+## 27. Decision tree
+
+A decision tree asks a sequence of questions.
 
 Example:
 
-> Are there more than 5 people ahead?
-
-If yes -> go one way.
-
-If no -> go another way.
+> Are more than 5 people ahead?
 
 Then:
 
 > Are fewer than 3 counters open?
 
-Then another split.
+Then:
 
-Eventually the tree arrives at a predicted wait.
+> Is queue pressure high?
 
-A single tree can easily overfit.
-
----
-
-## 11. What Random Forest is
-
-A **Random Forest** builds many decision trees instead of trusting one tree.
-
-Each tree sees a slightly different version of the data/features.
-
-Then the forest averages their predictions.
-
-Simple picture:
-
-```text
-Tree 1 predicts 12 min
-Tree 2 predicts 15 min
-Tree 3 predicts 13 min
-Tree 4 predicts 14 min
-
-Forest prediction ≈ average
-```
-
-This makes the model more stable than one tree.
+The path ends in a prediction.
 
 ---
 
-## 12. Random Forest terms
+## 28. How I understand Random Forest
 
-### n_estimators
+Random Forest builds many decision trees and averages their predictions.
 
-Number of trees.
+Instead of trusting one tree, I combine many.
 
-More trees usually improve stability but cost more computation.
-
-SmartQ selected:
-
-150 trees.
-
-### max_depth
-
-Maximum number of decision levels in a tree.
-
-Too deep:
-
-tree may memorise training data.
-
-Too shallow:
-
-tree may miss useful patterns.
-
-### min_samples_leaf
-
-Minimum number of training examples allowed in a final leaf.
-
-Larger values can reduce overfitting.
-
-### max_features
-
-How many features each split is allowed to consider.
-
-Randomness between trees helps make the forest diverse.
+That generally makes prediction more stable.
 
 ---
 
-## 13. Steps used for SmartQ Random Forest
+## 29. n_estimators
 
-1. Use the same completed customer rows.
-2. Use the same feature set.
-3. Use the same train/validation/test split.
-4. Apply the same preprocessing.
-5. Train a small number of candidate configurations.
-6. Compare validation MAE/RMSE.
-7. Keep the best validation configuration.
-8. Compare it with Linear Regression and XGBoost.
+This is the number of trees.
 
-Selected Random Forest validation:
+My selected Random Forest configuration uses 150 trees.
 
-- MAE ≈ 2.6315
-- RMSE ≈ 4.4920
-
-That is much better than Linear Regression.
-
-Why?
-
-Queue behaviour is not perfectly linear.
-
-Random Forest can learn patterns such as:
-
-> "When queue pressure is high AND counters are low AND people ahead is high, waiting time increases sharply."
-
-Linear Regression struggles more with this kind of interaction.
+More trees usually improve stability but also increase computation.
 
 ---
 
-# MODEL 3 — XGBOOST
+## 30. max_depth
 
-## 14. What boosting means
+This limits how deep each tree can grow.
 
-Random Forest builds many trees mostly independently and averages them.
+A very deep tree can memorise training data.
 
-**Boosting** works differently.
-
-It builds trees one after another.
-
-Each new tree focuses on correcting mistakes made by the previous trees.
-
-Simple example:
-
-Tree 1 makes rough predictions.
-
-Then we look at its mistakes.
-
-Tree 2 learns how to correct some of those mistakes.
-
-Tree 3 corrects more remaining mistakes.
-
-And so on.
+A very shallow tree can miss useful patterns.
 
 ---
 
-## 15. What XGBoost is
+## 31. min_samples_leaf
 
-**XGBoost** stands for:
+This controls how many examples must remain in a final tree leaf.
 
-Extreme Gradient Boosting.
-
-It is a highly optimised boosting algorithm.
-
-It is especially popular for structured/tabular data like SmartQ.
+Larger values can make the model less eager to memorise tiny groups.
 
 ---
 
-## 16. XGBoost terms
+## 32. Overfitting
 
-### n_estimators
+Overfitting means the model learns training data too specifically.
 
-Number of boosting trees.
+I think of it as memorising the revision sheet instead of learning the topic.
 
-SmartQ:
-
-200.
-
-### learning_rate
-
-How strongly each new tree is allowed to change the current prediction.
-
-Smaller learning rates usually learn more slowly and may require more trees.
-
-SmartQ:
-
-0.08.
-
-### max_depth
-
-Maximum tree depth.
-
-Controls model complexity.
-
-SmartQ:
-
-5.
-
-### subsample
-
-Fraction of training rows used for each tree.
-
-SmartQ:
-
-0.9 = 90%.
-
-This adds randomness and can reduce overfitting.
-
-### colsample_bytree
-
-Fraction of features available to each tree.
-
-SmartQ:
-
-0.9.
-
-Again, this adds randomness and can improve generalisation.
-
-### reg_lambda
-
-Regularisation strength.
-
-Regularisation discourages the model from becoming unnecessarily complex.
-
-SmartQ:
-
-2.0.
+My Random Forest has a lower training MAE than validation MAE, which shows it fits training more aggressively.
 
 ---
 
-## 17. Steps used for SmartQ XGBoost
+# XGBOOST
 
-1. Start with the exact same training population.
-2. Use the same features.
-3. Apply the same preprocessing.
-4. Train candidate XGBoost configurations.
-5. Predict validation waiting times.
-6. Calculate MAE and RMSE.
-7. Keep the candidate with the lower validation MAE.
-8. Compare against Random Forest and Linear Regression.
-9. Select the official model using the predefined rule.
+## 33. Boosting
 
-SmartQ XGBoost validation:
+Boosting builds models sequentially.
 
-- MAE ≈ 2.6302
-- RMSE ≈ 4.3893
+Each new tree tries to correct mistakes left by earlier trees.
 
-This narrowly beat Random Forest validation MAE.
-
-That is why XGBoost became the selected integration model.
+That is different from Random Forest, where many trees are mostly built independently.
 
 ---
 
-## 18. Why XGBoost and Random Forest are so close
+## 34. XGBoost
 
-Both are tree-based nonlinear models.
+XGBoost means **Extreme Gradient Boosting**.
 
-Both can understand complex interactions that Linear Regression cannot model directly.
+I use it because it is a strong algorithm for structured/tabular data and can learn nonlinear interactions.
 
-So it is not surprising that their results are similar.
+---
 
-The difference is mainly how the trees are built:
+## 35. learning_rate
 
-### Random Forest
+The learning rate controls how strongly each new tree changes the current prediction.
 
-Many trees learn independently -> predictions averaged.
+My selected XGBoost learning rate is 0.08.
 
-### XGBoost
+A smaller value usually means slower, more careful learning.
 
-Trees learn sequentially -> each tree tries to correct previous mistakes.
+---
 
-Neither method is universally better.
+## 36. subsample
 
-Their performance depends on the dataset.
+My `subsample = 0.9`.
+
+That means each tree uses about 90% of training rows.
+
+I use this randomness to reduce overfitting risk.
+
+---
+
+## 37. colsample_bytree
+
+My `colsample_bytree = 0.9`.
+
+That means each tree gets about 90% of the available transformed features.
+
+Again, I use randomness to improve generalisation.
+
+---
+
+## 38. reg_lambda
+
+This is L2 regularisation strength.
+
+I use it to discourage unnecessary model complexity.
+
+My selected value is 2.0.
+
+---
+
+## 39. Why XGBoost won my official selection
+
+Validation MAE:
+
+- Linear Regression: 4.1146
+- Random Forest: 2.6315
+- XGBoost: 2.6302
+
+I had already decided to select the lowest validation MAE.
+
+XGBoost narrowly won.
+
+I do not claim that the difference is large.
 
 ---
 
 # MODEL QUALITY
 
-## 19. Good fit
+## 40. Generalisation
 
-"Good fit" can mean several things.
+Generalisation means the model works on new data it did not train on.
 
-For prediction, the strongest evidence is:
-
-- low error on unseen data;
-- performance better than baseline;
-- similar validation and test behaviour;
-- no obvious leakage;
-- errors understood across subgroups;
-- no extreme train-vs-test collapse.
-
-Do not judge model quality using training accuracy alone.
-
-A model can memorise training data and fail on new customers.
+I use chronological validation/test periods to measure this.
 
 ---
 
-## 20. Overfitting
+## 41. Underfitting
 
-**Overfitting** means:
-
-> The model learned the training data too specifically and does not generalise well.
-
-Simple analogy:
-
-A student memorises the exact answers in the revision sheet instead of understanding the topic.
-
-They score 100% on that sheet but fail a different exam.
-
-Signs:
-
-- extremely good training score;
-- much worse validation/test score.
-
----
-
-## 21. Underfitting
-
-**Underfitting** means the model is too simple to capture the real patterns.
-
-Example:
-
-Using a straight line when the relationship is strongly curved.
+Underfitting means the model is too simple to capture the real pattern.
 
 Linear Regression can underfit nonlinear queue behaviour.
 
 ---
 
-## 22. Generalisation
+## 42. Train-vs-validation gap
 
-**Generalisation** means:
+I compare training and validation errors to understand overfitting.
 
-> Can the model work well on new data it did not train on?
+Random Forest has a larger gap than XGBoost.
 
-This is one of the main goals of ML.
-
-Our chronological validation/test design is meant to measure generalisation.
+That tells me Random Forest fits training data more aggressively.
 
 ---
 
 # FEATURE QUALITY
 
-## 23. Feature importance
+## 43. Feature importance
 
-Tree models can estimate which features they relied on most.
+Feature importance tells me which variables the fitted model relied on.
 
-SmartQ XGBoost currently relies strongly on:
-
-- people ahead;
-- queue pressure;
-- workload minutes ahead.
-
-This makes operational sense.
-
-But feature importance does not prove causality.
+It does not prove cause and effect.
 
 ---
 
-## 24. Permutation importance
-
-A useful future diagnostic.
-
-Method:
-
-1. measure normal model performance;
-2. randomly scramble one feature;
-3. measure performance again.
-
-If performance becomes much worse, that feature was useful.
-
-Why useful?
-
-It measures importance using prediction performance rather than only internal tree structure.
-
----
-
-## 25. SHAP
-
-**SHAP** is an explainability method.
-
-Plain English:
-
-> It estimates how much each feature pushed an individual prediction up or down.
-
-Example:
-
-Predicted wait = 25 minutes.
-
-SHAP may show:
-
-- many people ahead: +10 min
-- high queue pressure: +8 min
-- many counters open: -4 min
-- priority lane: -3 min
-
-SHAP is useful for understanding individual predictions and overall feature behaviour.
-
-It is more advanced, so it should be added only after the core diagnostics are understood.
-
----
-
-# STATISTICAL SIGNIFICANCE VS PREDICTIVE USEFULNESS
-
-## 26. They are not the same thing
-
-A feature can be statistically significant but barely improve prediction.
-
-Example:
-
-With 90,000 rows, Friday may have a very small but statistically detectable effect.
-
-But if removing Friday changes MAE by only 0.001 minutes, it may not be practically important.
-
-So ask two questions:
-
-1. Is the relationship statistically credible?
-2. Does the variable meaningfully help prediction?
-
----
-
-# WHY OUR WORKFLOW IS ORDERED THIS WAY
-
-## 27. Correct sequence
-
-```text
-Understand the problem
-        ↓
-Understand the data
-        ↓
-Validate the data
-        ↓
-Define the target
-        ↓
-Remove leakage
-        ↓
-Choose features
-        ↓
-Split train / validation / test
-        ↓
-Fit preprocessing on training only
-        ↓
-Build simple baseline
-        ↓
-Train Linear Regression
-        ↓
-Train Random Forest
-        ↓
-Train XGBoost
-        ↓
-Compare validation MAE/RMSE
-        ↓
-Select model
-        ↓
-Final test evaluation
-        ↓
-Diagnostics
-        ↓
-Integration
-        ↓
-Monitoring and retraining
-```
-
-Skipping earlier steps can make later model results misleading.
-
----
-
-# SMARTQ RESULTS IN PLAIN ENGLISH
-
-## 28. What the current scores mean
-
-Validation:
-
-- Linear Regression: about 4.11 min MAE
-- Random Forest: about 2.63 min MAE
-- XGBoost: about 2.63 min MAE
-
-XGBoost narrowly wins validation.
-
-Final selected XGBoost test:
-
-- MAE ≈ 2.58 minutes
-- RMSE ≈ 4.96 minutes
-
-This means:
-
-> On the synthetic test period, XGBoost was about 2.6 minutes wrong on average, while RMSE shows that some larger errors still exist.
-
----
-
-## 29. Important weakness
-
-Busy traffic:
-
-MAE ≈ 7.94 minutes.
-
-This tells us the model is much less reliable in heavy congestion.
-
-This is useful knowledge.
-
-A good ML project does not only ask:
-
-> "How accurate is the average?"
-
-It also asks:
-
-> "When does the model fail?"
-
----
-
-# QUESTIONS YOU SHOULD BE ABLE TO ANSWER
-
-## 30. Why regression?
-
-Because waiting time is a number.
-
-## 31. Why not include no-shows?
-
-Because they do not have a genuine completed wait outcome.
-
-## 32. Why chronological split?
-
-Because deployment predicts future queue conditions from past data.
-
-## 33. Why validation data?
-
-To choose models/settings without touching the final test exam.
-
-## 34. Why test data?
-
-To estimate final generalisation after model selection.
-
-## 35. Why MAE?
-
-Easy to explain in minutes.
-
-## 36. Why RMSE?
-
-It punishes big prediction errors more strongly.
-
-## 37. Why Linear Regression?
-
-Simple baseline model and useful statistical interpretation.
-
-## 38. Why Random Forest?
-
-Captures nonlinear interactions using many trees.
-
-## 39. Why XGBoost?
-
-Captures nonlinear patterns and sequentially corrects errors; strong for tabular data.
-
-## 40. Why XGBoost selected?
-
-It achieved the lowest validation MAE under the predefined rule.
-
-## 41. Why not switch to Random Forest after test results?
-
-Because the test set should not be used for model selection.
-
-## 42. Why synthetic data?
-
-Not enough real production records yet; the proposal allows simulated prototype data.
-
-## 43. Biggest limitation?
-
-Synthetic-only training and weaker performance under severe congestion.
-
----
-
-# LEARNING POLICY FOR THIS PROJECT
-
-From this point onward, whenever a new ML term is introduced, documentation should include:
-
-1. **Term**
-2. **Simple definition**
-3. **Why it matters**
-4. **How SmartQ uses it**
-5. **Trade-off or limitation where relevant**
-
-The goal is not only to finish SmartQ.
-
-The goal is for the developer to understand why the system was built this way.
-
-
----
-
-# MODEL DIAGNOSTICS — WHAT WE LEARNED FROM SMARTQ
-
-## 44. R² in our actual models
-
-R² means: how much of the variation in waiting time does the model explain?
-
-Test R²:
-
-- Linear Regression: 0.931
-- Random Forest: 0.965
-- XGBoost: 0.960
-
-This is strong fit on the synthetic test period, but R² does not tell us the average error in minutes. That is why MAE and RMSE remain necessary.
-
-## 45. Statistical significance is not the same as usefulness
-
-With tens of thousands of records, tiny effects can receive tiny p-values.
-
-Example:
-
-Peak vs non-peak waiting time is statistically different, but Cohen's d is only about 0.089, which is a very small standardised effect.
-
-So always ask:
-
-1. Is it statistically detectable?
-2. Is the effect actually large?
-3. Does the variable improve prediction?
-
-## 46. Heteroscedasticity
-
-Heteroscedasticity means the error spread is not constant.
-
-In SmartQ, quiet queues can be easier to predict than severe congestion.
-
-The Breusch-Pagan test strongly detects this.
-
-That is why the statistical Linear Regression uses **HC3 robust standard errors**.
-
-## 47. Robust standard error
-
-A robust standard error is a safer estimate of coefficient uncertainty when the normal constant-variance assumptions are not perfect.
-
-It does not change the fitted coefficient itself.
-
-It changes how cautiously we judge its uncertainty and p-value.
-
-## 48. Multicollinearity and VIF in our data
-
-Several SmartQ queue variables overlap strongly because they describe related operational conditions.
-
-High VIF does not mean the data is "bad."
-
-It means:
-
-> Be careful saying one Linear Regression coefficient represents a clean independent effect.
-
-Tree models can still use correlated features for prediction.
-
-## 49. Permutation importance
+## 44. Permutation importance
 
 Permutation importance asks:
 
@@ -1036,27 +512,138 @@ Permutation importance asks:
 
 For XGBoost, shuffling workload ahead increases test MAE by about 7.54 minutes.
 
-That is a strong sign that workload ahead carries useful predictive information.
+That tells me workload ahead is highly useful for prediction.
 
-## 50. SHAP
+---
 
-SHAP asks:
+## 45. SHAP
 
-> How much did each feature push the model prediction up or down?
+SHAP helps me understand how much each feature pushes a prediction up or down.
 
-SmartQ's strongest average SHAP signals are workload ahead, people ahead, arrival timing, effective counters and queue pressure.
+My strongest average SHAP signals are:
 
-Unlike a p-value, SHAP is about model behaviour, not statistical hypothesis testing.
+- workload ahead;
+- people ahead;
+- arrival timing;
+- effective counters;
+- queue pressure.
 
-## 51. Important lesson: different tools answer different questions
+I use SHAP to understand model behaviour, not to claim causation.
 
-- MAE: how many minutes wrong?
-- RMSE: are large errors a problem?
-- R²: how much target variation is explained?
-- p-value: is a coefficient statistically distinguishable from zero?
-- confidence interval: how uncertain is the coefficient estimate?
-- VIF: are predictors overlapping heavily?
-- residual plot: where and how does the model make errors?
-- permutation importance: does destroying a feature hurt prediction?
-- SHAP: how much does a feature influence model predictions?
-- validation/test comparison: does the model generalise?
+---
+
+# STATISTICAL SIGNIFICANCE VS PRACTICAL IMPORTANCE
+
+## 46. The difference I learned
+
+A feature can be statistically significant but practically weak.
+
+My peak vs non-peak comparison has a tiny p-value but a very small Cohen's d.
+
+That happened because I have a large dataset.
+
+So I now ask three questions:
+
+1. Is the effect statistically detectable?
+2. Is the effect large enough to matter?
+3. Does the feature improve prediction?
+
+---
+
+# MY FULL WORKFLOW
+
+## 47. The order I follow
+
+```text
+I define the problem
+        ↓
+I understand the data
+        ↓
+I validate the data
+        ↓
+I define the target
+        ↓
+I remove leakage
+        ↓
+I choose features
+        ↓
+I split train / validation / test
+        ↓
+I fit preprocessing on training only
+        ↓
+I build baselines
+        ↓
+I train Linear Regression
+        ↓
+I train Random Forest
+        ↓
+I train XGBoost
+        ↓
+I compare validation MAE/RMSE
+        ↓
+I select the model
+        ↓
+I evaluate the later test period
+        ↓
+I run diagnostics
+        ↓
+I integrate the model
+        ↓
+I monitor and retrain later
+```
+
+I follow this order because skipping early steps can make later accuracy numbers misleading.
+
+---
+
+# MY CURRENT RESULTS IN PLAIN ENGLISH
+
+## 48. What my XGBoost score means
+
+Selected XGBoost test:
+
+- MAE ≈ 2.58 min
+- RMSE ≈ 4.96 min
+- R² ≈ 0.960
+
+I interpret this as:
+
+> On my synthetic test period, the selected model is about 2.6 minutes wrong on average, but some larger mistakes still exist.
+
+---
+
+## 49. My biggest weakness
+
+Busy traffic MAE is about 7.94 minutes.
+
+This means the model is much less reliable during severe congestion.
+
+I treat that as an important limitation rather than hiding it.
+
+---
+
+## 50. What I want to be able to explain without notes
+
+I want to be able to answer:
+
+- Why is this regression?
+- Why did I exclude no-shows?
+- Why did I split chronologically?
+- Why do I need validation data?
+- Why do I keep the test set separate?
+- Why do I use MAE and RMSE?
+- Why did I train Linear Regression?
+- Why did Random Forest help?
+- How does XGBoost differ from Random Forest?
+- What is overfitting?
+- What is R²?
+- What is a p-value?
+- What is VIF?
+- Why is multicollinearity important?
+- What is a residual?
+- What does permutation importance tell me?
+- What does SHAP tell me?
+- Why did I keep XGBoost after Random Forest had a slightly lower test MAE?
+- Why can I not claim real-world accuracy yet?
+
+If I can explain those clearly, then I understand the project instead of only owning the code.
