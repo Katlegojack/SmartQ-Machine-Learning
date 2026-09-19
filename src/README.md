@@ -12,3 +12,5 @@ My main files are:
 I keep reusable logic here because notebooks are good for learning and exploration, but application integration needs code that I can call consistently.
 
 My goal is that somebody can reproduce my important results from code instead of trusting manually copied numbers.
+
+I keep this folder limited to reusable ML code that belongs to the project long-term. I remove one-off migration or documentation-rewrite helpers after they have done their job so the source folder stays clean.
