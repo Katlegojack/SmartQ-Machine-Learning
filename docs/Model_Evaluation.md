@@ -1,16 +1,18 @@
-# SmartQ Model Evaluation
+# My SmartQ Model Evaluation
 
-## Objective
+## What I am evaluating
 
-The SmartQ machine-learning task is to predict customer waiting time in minutes using queue information available at check-in time.
+My ML task is to predict customer waiting time in minutes using information available at check-in time.
 
-The supervised target is `actual_wait_minutes`.
+My target is:
 
-Only completed visits are used for the regression task because no-shows and cancelled visits do not have a genuine completed wait outcome.
+`actual_wait_minutes`
 
-## Data split
+I use completed visits only because no-shows and cancellations do not have a genuine completed wait outcome.
 
-The 92,655 completed visits were split chronologically by whole operating days.
+## How I split the data
+
+I used a chronological split by whole operating days.
 
 | Split | Rows | Date range |
 |---|---:|---|
@@ -18,17 +20,23 @@ The 92,655 completed visits were split chronologically by whole operating days.
 | Validation | 14,665 | 2026-06-17 to 2026-07-22 |
 | Test | 13,916 | 2026-07-23 to 2026-08-27 |
 
-The same operating date never appears in more than one partition. This is more realistic than a random row split because SmartQ learns from earlier queue behaviour and is evaluated on later queue behaviour.
+I chose this because SmartQ will learn from past behaviour and predict later behaviour.
 
-## Preprocessing
+I also wanted to avoid customers from the same operating day appearing across different splits.
 
-Numeric missing values are imputed using medians fitted on training data only. Categorical missing values use the most frequent training category. Categorical fields are one-hot encoded with unknown categories ignored.
+## How I prepared the data
 
-The existing deterministic `baseline_eta_minutes` is not used as a model input. It is retained only as an engineering benchmark.
+For numeric missing values, I used the median learned from the training data only.
 
-Post-outcome fields such as call time, actual service duration, service start/completion timestamps and the target itself are excluded from model inputs to avoid data leakage.
+For categorical missing values, I used the most frequent training value.
 
-## Validation results
+I one-hot encoded categorical variables so the models could work with branch, service, booking source, queue lane, weekday and peak-period labels.
+
+I deliberately excluded the existing `baseline_eta_minutes` from the official ML features.
+
+I also excluded post-outcome fields to prevent data leakage.
+
+## My validation results
 
 | Model | MAE (min) | RMSE (min) |
 |---|---:|---:|
@@ -38,13 +46,21 @@ Post-outcome fields such as call time, actual service duration, service start/co
 | Random Forest | 2.6315 | 4.4920 |
 | **XGBoost** | **2.6302** | **4.3893** |
 
-The project selection rule is lowest validation MAE among Linear Regression, Random Forest and XGBoost. XGBoost therefore becomes the selected model.
+Before I looked at the final test set, I had already decided that the official model would be whichever of Linear Regression, Random Forest and XGBoost had the lowest validation MAE.
 
-The Random Forest and XGBoost validation MAEs differ by only about 0.0013 minutes, so they should be described as effectively very close rather than claiming that XGBoost is dramatically superior.
+XGBoost won by a very small margin.
+
+The difference between Random Forest and XGBoost validation MAE is only about 0.0013 minutes.
+
+So I do **not** describe XGBoost as dramatically better.
+
+I describe the result as:
+
+> Random Forest and XGBoost performed almost identically on validation MAE, with XGBoost narrowly achieving the lowest value.
 
 ## Final test results
 
-The untouched test set was evaluated after model selection was fixed.
+After I fixed the selection decision, I evaluated the later test period.
 
 | Model | MAE (min) | RMSE (min) |
 |---|---:|---:|
@@ -54,19 +70,27 @@ The untouched test set was evaluated after model selection was fixed.
 | Random Forest | 2.5231 | 4.6425 |
 | **Selected XGBoost** | **2.5824** | **4.9561** |
 
-Random Forest happens to have the lowest test MAE, but the selected model is not changed after seeing test results. Switching at this point would use the final test set for model selection and weaken the validity of the evaluation.
+Random Forest happened to have a slightly lower test MAE.
 
-The selected XGBoost model beats the required simple mean-wait baseline by a large margin and also improves on the existing deterministic SmartQ ETA benchmark.
+I did not switch models after seeing this.
+
+If I changed the winner after seeing the test results, I would be using the test set for model selection.
+
+That would weaken the credibility of my evaluation.
+
+The difference is also tiny in practical terms: about 0.059 minutes, which is roughly 3.5 seconds.
+
+I preferred to keep the evaluation method honest.
 
 ## Traffic-condition performance
 
-Traffic scenarios are defined using `queue_pressure_index`:
+I grouped test rows using `queue_pressure_index`:
 
 - Low: below 1.0
 - Moderate: 1.0 to below 2.5
 - Busy: 2.5 or above
 
-Selected XGBoost test performance:
+For selected XGBoost:
 
 | Traffic | Rows | MAE (min) | RMSE (min) |
 |---|---:|---:|---:|
@@ -74,11 +98,15 @@ Selected XGBoost test performance:
 | Moderate | 6,575 | 2.95 | 4.43 |
 | Busy | 1,125 | 7.94 | 12.54 |
 
-This shows an important limitation: prediction error increases substantially during heavy congestion. The result should be discussed openly in the final report.
+This is one of the most important findings in my project.
+
+The overall MAE is strong, but the model becomes much less accurate during severe congestion.
+
+I keep this limitation visible because busy queues are exactly where waiting-time prediction matters most.
 
 ## Service performance
 
-XGBoost test MAE is similar across the three synthetic service types:
+XGBoost test MAE is similar across my three synthetic service types:
 
 | Service | MAE (min) |
 |---|---:|
@@ -86,23 +114,49 @@ XGBoost test MAE is similar across the three synthetic service types:
 | ID Applications | 2.54 |
 | Passport Applications | 2.60 |
 
+I also found that the raw average waiting times of the service types are not statistically different in a meaningful way.
+
 ## Branch performance
 
-The synthetic scenario shows different error levels by branch. The highest test MAE occurs for Centurion Service Centre at about 4.07 minutes, while Pretoria Central is about 2.00 minutes.
+The synthetic scenario produces different error levels across branches.
 
-These branch names and results belong to the synthetic dataset. They must not be interpreted as measured performance of real service centres.
+For example:
+
+- Centurion Service Centre: about 4.07 min MAE
+- Pretoria Central: about 2.00 min MAE
+
+I do not present these as real service-centre performance.
+
+They are results from the synthetic data I generated.
 
 ## Feature importance
 
-The strongest XGBoost feature is `people_ahead`, followed by `queue_pressure_index` and `workload_minutes_ahead`. This is operationally sensible: a customer's wait is strongly affected by the amount of queued work and available serving capacity.
+My tree-model diagnostics consistently point to:
 
-Feature importance describes how the fitted model uses the synthetic dataset; it should not be presented as causal proof.
+- workload ahead;
+- people ahead;
+- effective serving capacity;
+- queue pressure;
 
-## Selected model
+as important prediction signals.
 
-**XGBoost** is the SmartQ integration candidate because it achieved the lowest validation MAE under the predeclared selection rule.
+I treat feature importance as evidence about how the model uses the synthetic data.
 
-Best tested XGBoost configuration:
+I do not treat it as causal proof.
+
+## Why I selected XGBoost
+
+I selected XGBoost because:
+
+1. it was one of the three proposal models;
+2. it achieved the lowest validation MAE;
+3. it also achieved the lowest validation RMSE of the three official ML models;
+4. its test performance remained strong;
+5. it beat the mean baseline by a large margin;
+6. it improved on the deterministic ETA benchmark;
+7. I can package it for backend prediction.
+
+My selected configuration is:
 
 - n_estimators: 200
 - max_depth: 5
@@ -111,8 +165,15 @@ Best tested XGBoost configuration:
 - colsample_bytree: 0.9
 - reg_lambda: 2.0
 
-## Interpretation
+## What I do not claim
 
-The experiment satisfies the proposal requirement to train Linear Regression, Random Forest and XGBoost on the same prepared data and compare them using MAE and RMSE.
+I do not claim that these numbers prove real-world production accuracy.
 
-The results demonstrate performance on the **synthetic SmartQ operational dataset**. They do not establish guaranteed accuracy on real government, clinic, university or business queues. Real-world deployment would require validation and retraining using representative operational data.
+My experiment shows that the models can learn the patterns I deliberately represented in the synthetic SmartQ dataset.
+
+Real deployment would still require:
+
+- representative live queue data;
+- external validation;
+- monitoring;
+- retraining.
